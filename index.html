@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geobuf to GeoJSON Map Display</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #mapid {
+            height: 600px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Geobuf to GeoJSON Map Display</h1>
+    <div id="mapid"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/pbf@3.2.1/dist/pbf.js"></script>
+    <script src="https://unpkg.com/geobuf@3.0.2/dist/geobuf.js"></script>
+    <script>
+        var map = L.map('mapid').setView([0, 0], 2); // Initial view, will be adjusted later
+
+        // 添加OpenStreetMap瓦片图层
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        /**
+         * 异步加载并显示Geobuf数据
+         * 1. 从服务器获取Geobuf文件
+         * 2. 将Geobuf转换为GeoJSON格式
+         * 3. 在地图上显示GeoJSON数据
+         * 4. 自动调整地图视图以显示所有要素
+         */
+        async function loadGeobufAndDisplay() {
+            try {
+                // 从服务器获取Geobuf文件
+                const response = await fetch('output.geobuf');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // 将响应转换为ArrayBuffer
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // 使用Pbf库解析二进制数据
+                const pbf = new Pbf(arrayBuffer);
+                
+                // 将Geobuf格式转换为GeoJSON格式
+                const geojson = geobuf.decode(pbf);
+
+                console.log('Converted GeoJSON:', geojson);
+
+                // 检查GeoJSON数据是否有效且有要素
+                if (geojson && geojson.features && geojson.features.length > 0) {
+                    // 在地图上创建并添加GeoJSON图层
+                    const geoJsonLayer = L.geoJSON(geojson).addTo(map);
+                    
+                    // 自动调整地图视图以包含所有要素
+                    map.fitBounds(geoJsonLayer.getBounds());
+                } else {
+                    console.warn('No GeoJSON features to display.');
+                }
+
+            } catch (error) {
+                // 捕获并记录加载或转换过程中的任何错误
+                console.error('Error loading or converting Geobuf:', error);
+            }
+        }
+
+        loadGeobufAndDisplay();
+    </script>
+</body>
+</html>
